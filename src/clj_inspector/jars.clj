@@ -2,6 +2,8 @@
 ; Eclipse Public License 1.0, same as Clojure
 
 (ns clj-inspector.jars
+  ^{:doc "Library for reading clojure source files from jars."
+    :author "Arthur Edelstein"}
   (:import (java.util.zip ZipFile)
            (java.io BufferedReader File))
   (:use [clojure.java.io :only (reader)]))
@@ -55,5 +57,6 @@
 
 ;; test
 
-(map count (vals (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar"))))
+(defn first-test []
+  (map count (vals (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))
 
