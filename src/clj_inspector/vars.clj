@@ -1,7 +1,7 @@
 ; Copyright Arthur Edelstein
 ; Eclipse Public License 1.0, same as Clojure
 
-(ns clj-inspector
+(ns clj-inspector.vars
   ^{:doc "Library for inspecting clojure source code."
     :author "Arthur Edelstein"}
  (:import [clojure.lang LineNumberingPushbackReader]
