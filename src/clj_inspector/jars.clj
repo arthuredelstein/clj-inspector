@@ -1,4 +1,4 @@
-; Copyright Arthur Edelstein
+; Copyright Arthur Edelstein, 2012
 ; Eclipse Public License 1.0, same as Clojure
 
 (ns clj-inspector.jars
