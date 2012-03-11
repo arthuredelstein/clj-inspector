@@ -154,7 +154,7 @@
   (binding [*read-eval* false] 
     (try
       (create-var-entries (read-clojure-source source-text)))
-      (catch Throwable e (do (swap! failed-to-process conj [source-text e]) nil)))))
+      (catch Throwable e (do (swap! failed-to-process conj [source-text e]) nil))))
 
 ;; tests
 
