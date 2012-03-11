@@ -29,9 +29,6 @@
        file-seq
        (filter #(.endsWith (.getAbsolutePath %) ".jar"))))
 
-(defn remove-snapshots [jar-files]
-  (remove #(.contains (.getAbsolutePath %) "-SNAPSHOT")))
-
 (defn get-entries-in-jar
   "Get a list of entries in a jar."
   [file]
