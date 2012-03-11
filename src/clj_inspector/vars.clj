@@ -19,8 +19,8 @@
 
 (defn read-clojure-source
   "Takes the text of clojure source code and returns a sequence
-   of maps, each containing an s-expression with metadata including
-   the line number, the file name and the source text."
+   s-expressions with metadata including the line number, the
+   file name and the source text."
   [text]
   (let [code-reader (LineNumberingPushbackReader.
                       (StringReader. (str \newline text)))
