@@ -46,12 +46,12 @@
   (try
     (let [entries (select-clj-jar-entries (get-entries-in-jar jar-file))]
       (into (sorted-map)
-      (for [entry entries]
-        (let [path (str (.getAbsolutePath jar-file)
-                        "!" File/separator
-                        (.getName entry))]
-          [path
-           (slurp* (.getInputStream (ZipFile. jar-file) entry))]))))
+            (for [entry entries]
+              (let [path (str (.getAbsolutePath jar-file)
+                              "!" File/separator
+                              (.getName entry))]
+                [path
+                 (slurp* (.getInputStream (ZipFile. jar-file) entry))]))))
     (catch Exception e 
            (do (swap! failed-jars conj [jar-file e]) nil))))
 

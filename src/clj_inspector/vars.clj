@@ -7,7 +7,8 @@
  (:import [clojure.lang LineNumberingPushbackReader]
           [java.io BufferedReader File StringReader]
           [java.lang StringBuilder])
- (:use [clojure.pprint :only (pprint)]))
+ (:use [clojure.pprint :only (pprint)]
+       [clj-inspector.jars :only (clj-sources-from-jar)]))
 
 (def failed-to-process (atom []))
 
@@ -16,36 +17,32 @@
   [coll x]
   (some #{x} coll))
 
-(defn recording-source-reader [rdr]
-  (let [text (StringBuilder.)]
-    (proxy [clojure.lang.LineNumberingPushbackReader] [rdr]
-      (read [] (let [i (proxy-super read)]
-                 (.append text (char i))
-                 i))
-      (unread [c] (proxy-super unread c)
-                  (.setLength text (dec (.length text))))
-      (toString [] (let [s (.trim (str text))]
-                     (.setLength text 0)
-                     s)))))
-
 (defn read-clojure-source
   "Takes the text of clojure source code and returns a sequence
    of maps, each containing an s-expression with metadata including
    the line number, the file name and the source text."
   [text]
-  (let [code-reader (recording-source-reader (StringReader. (str \newline text)))]
-    (take-while identity
-                (repeatedly
-                  (fn [] (let [sexpr (try (read code-reader) (catch Exception e nil))
-                               nbot (.getLineNumber code-reader)
-                               code-lines (.toString code-reader)
-                               line (- nbot (count (.split code-lines "\n")))]
-                           (try
-                             (when (and sexpr (instance? clojure.lang.IObj sexpr))
-                               (with-meta sexpr {:line line 
-                                                 :source code-lines}))
-                             )))))))
-
+  (let [code-reader (LineNumberingPushbackReader.
+                      (StringReader. (str \newline text)))
+        lines (vec (.split text "\n"))
+        total-lines (count lines)]
+    (loop [sexprs [] line 0]
+      (let [sexpr (try (read code-reader) (catch Exception e nil))
+            next-line (.getLineNumber code-reader)]
+        (if (and sexpr (instance? clojure.lang.IObj sexpr))
+          (let [sexpr-m
+                (with-meta
+                  sexpr
+                  {:line (inc line)
+                   :source (.trim (apply str
+                                  (interpose "\n"
+                                             (subvec
+                                               lines
+                                               line
+                                               (min next-line total-lines)))))})]
+            (recur (conj sexprs sexpr-m) next-line))
+          sexprs)))))
+    
 ;; namespace: { :full-name :short-name :doc :author :members :subspaces :see-also}
 ;; vars: {:name :doc :arglists :var-type :file :line :added :deprecated :dynamic}
 
@@ -156,7 +153,7 @@
   ; because we are reading untrusted code!!!
   (binding [*read-eval* false] 
     (try
-      (create-var-entries (read-clojure-source source-text))
+      (create-var-entries (read-clojure-source source-text)))
       (catch Throwable e (do (swap! failed-to-process conj [source-text e]) nil)))))
 
 ;; tests
@@ -169,4 +166,13 @@
 (defn test-collect []
   (analyze-clojure-source (slurp test-file)))
 
+(defn test-process []
+  (time (map count
+             (map analyze-clojure-source
+                  (map second
+                       (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))))
+
+(defn core-code []
+  (second (first (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))
+  
 
