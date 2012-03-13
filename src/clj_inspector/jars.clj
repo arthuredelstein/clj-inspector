@@ -6,7 +6,10 @@
     :author "Arthur Edelstein"}
   (:import (java.util.zip ZipFile)
            (java.io BufferedReader File))
-  (:use [clojure.java.io :only (reader)]))
+  (:require [clojure.zip :as zip]
+            [clojure.xml :as xml])
+  (:use [clojure.java.io :only (reader)]
+        [clojure.data.zip.xml :only (attr text xml->)]))
 
 (def failed-jars (atom []))
 
@@ -34,6 +37,18 @@
   [file]
   (enumeration-seq (.entries (ZipFile. file))))
 
+(defn slurp-entry [jar-file entry]
+  (slurp* (.getInputStream (ZipFile. jar-file) entry)))
+
+(defn jar-pom-xml [jar-file]
+  "Get the pom.xml file from a jar, if it exists."
+  (->> jar-file
+       get-entries-in-jar
+       (filter #(.endsWith (.getName %) "pom.xml"))
+       first
+       (.getInputStream (ZipFile. jar-file))
+       xml/parse))
+       
 (defn select-clj-jar-entries
   "Select *.clj files from a list of jar entries."
   [entries]
@@ -51,7 +66,7 @@
                               "!" File/separator
                               (.getName entry))]
                 [path
-                 (slurp* (.getInputStream (ZipFile. jar-file) entry))]))))
+                 (slurp-entry jar-file entry)]))))
     (catch Exception e 
            (do (swap! failed-jars conj [jar-file e]) nil))))
 

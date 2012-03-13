@@ -19,28 +19,28 @@
 
 (defn read-clojure-source
   "Takes the text of clojure source code and returns a sequence
-   s-expressions with metadata including the line number, the
-   file name and the source text."
+   of s-expressions with metadata including the line number and
+   the source text."
   [text]
   (let [code-reader (LineNumberingPushbackReader.
-                      (StringReader. (str \newline text)))
+                      (StringReader. text))
         lines (vec (.split text "\n"))
         total-lines (count lines)]
-    (loop [sexprs [] line 0]
+    (loop [sexprs []]
       (let [sexpr (try (read code-reader) (catch Exception e nil))
-            next-line (.getLineNumber code-reader)]
+            last-line (.getLineNumber code-reader)]
         (if (and sexpr (instance? clojure.lang.IObj sexpr))
-          (let [sexpr-m
-                (with-meta
-                  sexpr
-                  {:line (inc line)
-                   :source (.trim (apply str
-                                  (interpose "\n"
-                                             (subvec
-                                               lines
-                                               line
-                                               (min next-line total-lines)))))})]
-            (recur (conj sexprs sexpr-m) next-line))
+          (let [line (:line (meta sexpr))
+                sexpr-m
+                (vary-meta
+                  sexpr merge
+                  {:source (.trim (apply str
+                                         (interpose "\n"
+                                                    (subvec
+                                                      lines
+                                                      (dec line)
+                                                      (min last-line total-lines)))))})]
+            (recur (conj sexprs sexpr-m)))
           sexprs)))))
     
 ;; namespace: { :full-name :short-name :doc :author :members :subspaces :see-also}
