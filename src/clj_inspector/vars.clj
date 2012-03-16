@@ -46,15 +46,26 @@
 ;; namespace: { :full-name :short-name :doc :author :members :subspaces :see-also}
 ;; vars: {:name :doc :arglists :var-type :file :line :added :deprecated :dynamic}
 
-(defn get-meta-deflike
-  [sexpr]
-  (meta (second sexpr)))
+(defn drop-quotes [sexpr]
+  (if (and (seq? sexpr)
+           (= (first sexpr) 'quote))
+    (drop-quotes (second sexpr))
+    sexpr))
 
 (defn get-arg-lists [sexpr]
   (let [tail (drop-while #(or (map? %) (string? %)) (drop 2 sexpr))
         exp1 (first tail)]
     (cond (vector? exp1) (list exp1)
-          (list? exp1) (map first tail))))
+          (list? exp1) (map first tail)
+          :else nil)))
+
+(defn arglist-expr-to-str [arglist-expr]
+  (when arglist-expr
+    (pr-str (drop-quotes arglist-expr))))
+
+(defn get-meta-deflike
+  [sexpr]
+  (meta (second sexpr)))
 
 (defn get-meta-defnlike
   [sexpr]
@@ -66,7 +77,8 @@
       (if (map? t3) t3)
       (if (and d (map? t4)) t4)
       (if d {:doc d})
-      (if (not= t1 'defmulti) {:arglists (get-arg-lists sexpr)}))))
+      (if (not= t1 'defmulti)
+        {:arglists (arglist-expr-to-str (get-arg-lists sexpr))}))))
 
 (defn get-meta-tail-doc
   [sexpr n]
@@ -78,14 +90,61 @@
           3 t3
           4 t4))})))
 
-;; TODO: 'ns (namespaces)
+(defn ns-sections [sexpr]
+  (apply merge-with concat
+         (for [sub-expr sexpr]
+           (when (sequential? sub-expr)
+             (let [tag (first sub-expr)]
+               (when (#{:import :require :use} tag)
+                 {tag (rest sub-expr)}))))))
+
+(defn concat-or-all [& args]
+  (if ((set args) :all)
+    :all
+    (apply concat args)))
+
+(defn scrape-ns-parts [clause mapping-fn]
+  (apply merge-with concat-or-all
+         (map mapping-fn clause)))
+  
+(defn analyze-use-section [ns-sections]
+  (scrape-ns-parts (:use ns-sections)
+                   (fn [piece]
+                     (if (sequential? piece)
+                       {(first piece)
+                        (if (rest piece)
+                          (nth piece 2)
+                          :all)}
+                       {piece :all}))))
+             
+(defn analyze-require-section [ns-sections]
+  (scrape-ns-parts (:require ns-sections)
+                   (fn [piece]
+                     (if (sequential? piece)
+                       {(first piece) [(nth piece 2)]}
+                       {piece nil}))))
+
+(defn analyze-import-section [ns-sections]
+  (scrape-ns-parts (:import ns-sections)
+                   (fn [piece]
+                     (if (sequential? piece)
+                       {(first piece) (rest piece)}
+                       nil))))
+
+(defn analyze-ns-form [sexpr]
+  (let [ns-sections (ns-sections sexpr)]
+    (merge (get-meta-deflike sexpr)
+           {:use (analyze-use-section ns-sections)
+            :require (analyze-require-section ns-sections)
+            :import (analyze-import-section ns-sections)})))
+
 (defn analyze-sexpr
   "Analyze the s-expression for docs and metadata."
   [sexpr]
   (when (seq? sexpr)
     (condp has? (first sexpr)
       '(ns)
-      (get-meta-deflike sexpr)
+      (analyze-ns-form sexpr)
       '(def defhinted defonce defstruct)
       (get-meta-deflike sexpr)
       '(defn definline defmacro defmulti defn-memo defnk)
@@ -106,24 +165,9 @@
       'defnk     "function"}
      (first sexpr)))
 
-(defn drop-quotes [sexpr]
-  (if (and (seq? sexpr)
-           (= (first sexpr) 'quote))
-    (drop-quotes (second sexpr))
-    sexpr))
-
-(defn arglist-as-str [expr-info-map]
-  (try
-  (update-in expr-info-map [:arglists]
-             #(when % (-> % drop-quotes pr-str)))
-    (catch Throwable e (do 
-                         (def x expr-info-map)
-                         (prn "arglist-as-str" expr-info-map e)
-                         (throw e)))))
-
 (defn build-expr-info [sexpr]
   (when (seq? sexpr)
-    (let [analysis (arglist-as-str (analyze-sexpr sexpr))]
+    (let [analysis (analyze-sexpr sexpr)]
       (with-meta
         (if (has? ['ns 'in-ns] (first sexpr))
           (merge

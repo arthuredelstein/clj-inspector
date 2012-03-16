@@ -43,6 +43,12 @@ return it as a string. (Borrowed from autodoc.)"
   []
   "Do nothing.")
 
+(defn fn-multiple-args
+  "Definition contains multiple arities."
+  ([] "Zero args")
+  ([a] "One arg")
+  ([a b] "Two args")) 
+
 (defmacro macro-no-doc []
   "Do nothing.")
   
