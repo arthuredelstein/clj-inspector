@@ -12,6 +12,8 @@
 
 (def failed-to-process (atom []))
 
+(defonce ns-names (atom nil))
+
 (defn has?
   "If x is in collection, returns x, else nil."
   [coll x]
@@ -90,62 +92,12 @@
           3 t3
           4 t4))})))
 
-(defn ns-sections [sexpr]
-  (apply merge-with concat
-         (for [sub-expr sexpr]
-           (when (sequential? sub-expr)
-             (let [tag (first sub-expr)]
-               (when (#{:import :require :use} tag)
-                 {tag (rest sub-expr)}))))))
-
-(defn concat-or-all [& args]
-  (if ((set args) :all)
-    :all
-    (apply concat args)))
-
-(defn scrape-ns-parts [clause mapping-fn]
-  (apply merge-with concat-or-all
-         (map mapping-fn clause)))
-  
-(defn analyze-use-section [ns-sections]
-  (scrape-ns-parts (:use ns-sections)
-                   (fn [piece]
-                     (if (sequential? piece)
-                       {(first piece)
-                        (if (rest piece)
-                          (nth piece 2)
-                          :all)}
-                       {piece :all}))))
-             
-(defn analyze-require-section [ns-sections]
-  (scrape-ns-parts (:require ns-sections)
-                   (fn [piece]
-                     (if (sequential? piece)
-                       {(first piece) [(nth piece 2)]}
-                       {piece nil}))))
-
-(defn analyze-import-section [ns-sections]
-  (scrape-ns-parts (:import ns-sections)
-                   (fn [piece]
-                     (if (sequential? piece)
-                       {(first piece) (rest piece)}
-                       nil))))
-
-(defn analyze-ns-form [sexpr]
-  (let [ns-sections (ns-sections sexpr)]
-    (merge (get-meta-deflike sexpr)
-           {:use (analyze-use-section ns-sections)
-            :require (analyze-require-section ns-sections)
-            :import (analyze-import-section ns-sections)})))
-
 (defn analyze-sexpr
   "Analyze the s-expression for docs and metadata."
   [sexpr]
   (when (seq? sexpr)
     (condp has? (first sexpr)
-      '(ns)
-      (analyze-ns-form sexpr)
-      '(def defhinted defonce defstruct)
+      '(ns def defhinted defonce defstruct)
       (get-meta-deflike sexpr)
       '(defn definline defmacro defmulti defn-memo defnk)
       (get-meta-defnlike sexpr)
@@ -192,13 +144,67 @@
                 (map #(merge ns-info %) (rest exprs-info))
                 (throw (Exception. "First element is not a namespace declaration.")))))))
 
+(defn save-names [var-entries]
+  (doseq [entry var-entries]
+  (swap! ns-names update-in [(:ns entry)] conj (:name entry))))
+
 (defn analyze-clojure-source [source-text]
   ; Important to turn off the EvalReader
   ; because we are reading untrusted code!!!
   (binding [*read-eval* false] 
     (try
-      (create-var-entries (read-clojure-source source-text)))
-      (catch Throwable e (do (swap! failed-to-process conj [source-text e]) nil))))
+      (doto
+        (create-var-entries (read-clojure-source source-text))
+        save-names)
+      (catch Throwable e (do (swap! failed-to-process conj [source-text e]) nil)))))
+
+;; parsing the ns form for referred and resolved names
+
+
+(defn ns-sections [sexpr]
+  (apply merge-with concat
+         (for [sub-expr sexpr]
+           (when (sequential? sub-expr)
+             (let [tag (first sub-expr)]
+               (when (#{:import :require :use} tag)
+                 {tag (rest sub-expr)}))))))
+
+(defn make-name-map [path names]
+  (into {}
+        (for [name names]
+          [(str name) [(str path) (last (.split (str name) "/"))]])))
+  
+(defn parse-use-section [ns-sections]
+  (apply merge
+         (for [piece (cons ['clojure.core] (:use ns-sections))]
+           (let [ns (str (first piece))]
+             (when (sequential? piece)
+               (if (< 1 (count piece))
+                 (make-name-map ns (nth piece 2))
+                 (make-name-map ns (@ns-names ns))))))))
+
+(defn parse-require-section [ns-sections]
+  (apply merge
+         (for [piece (cons ['clojure.core] (:require ns-sections))]
+           (when (sequential? piece)
+             (println piece)
+             (let [ns (str (first piece))
+                   prefix (if (< 1 (count piece)) (nth piece 2) ns)
+                   names (map #(str prefix "/" %) (get @ns-names ns))]
+               (make-name-map ns names))))))
+
+(defn parse-import-section [ns-sections]
+  (apply merge
+         (for [piece (:import ns-sections)]
+           (if (sequential? piece)
+             (make-name-map (first piece) (rest piece))))))
+
+(defn parse-ns-form [sexpr]
+  (let [ns-sections (ns-sections sexpr)]
+    (merge
+      (parse-use-section ns-sections)
+      (parse-require-section ns-sections)
+      (parse-import-section ns-sections))))
 
 ;; tests
 

@@ -1,5 +1,6 @@
 (ns ^{:author "Arthur Edelstein"}
-  co.code-sample)
+  co.code-sample
+  (:require [clojure.core :as core]))
 
 (defn var-type
   "Determing the type (var, function, macro) of a var from the metadata and
