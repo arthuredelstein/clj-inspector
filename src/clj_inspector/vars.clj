@@ -181,7 +181,7 @@
              (when (sequential? piece)
                (if (< 1 (count piece))
                  (make-name-map ns (nth piece 2))
-                 (make-name-map ns (@ns-names ns))))))))
+                 (make-name-map ns (get @ns-names ns))))))))
 
 (defn parse-require-section [ns-sections]
   (apply merge
