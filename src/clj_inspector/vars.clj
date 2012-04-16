@@ -160,7 +160,6 @@
 
 ;; parsing the ns form for referred and resolved names
 
-
 (defn ns-sections [sexpr]
   (apply merge-with concat
          (for [sub-expr sexpr]
@@ -187,7 +186,7 @@
   (apply merge
          (for [piece (cons ['clojure.core] (:require ns-sections))]
            (when (sequential? piece)
-             (println piece)
+             ;(println piece)
              (let [ns (str (first piece))
                    prefix (if (< 1 (count piece)) (nth piece 2) ns)
                    names (map #(str prefix "/" %) (get @ns-names ns))]
