@@ -176,11 +176,14 @@
 (defn parse-use-section [ns-sections]
   (apply merge
          (for [piece (cons ['clojure.core] (:use ns-sections))]
-           (let [ns (str (first piece))]
-             (when (sequential? piece)
-               (if (< 1 (count piece))
-                 (make-name-map ns (nth piece 2))
-                 (make-name-map ns (get @ns-names ns))))))))
+           (let [ns (str (if (sequential? piece)
+                           (first piece)
+                           piece))]
+             (make-name-map ns
+                            (if (and (sequential? piece)
+                                     (< 1 (count piece)))
+                              [(nth piece 2)]
+                              (get @ns-names ns)))))))
 
 (defn parse-require-section [ns-sections]
   (apply merge
