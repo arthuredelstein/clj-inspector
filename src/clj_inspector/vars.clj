@@ -182,7 +182,7 @@
              (make-name-map ns
                             (if (and (sequential? piece)
                                      (< 1 (count piece)))
-                              [(nth piece 2)]
+                              (nth piece 2)
                               (get @ns-names ns)))))))
 
 (defn parse-require-section [ns-sections]
