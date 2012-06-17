@@ -64,7 +64,13 @@
      :name name
      :version version
      :description (xml1-> z :description text)
-     :url (xml1-> z :url text)}))
+     :url (xml1-> z :url text)
+     :lein-specifier (str "[" name " \"" version "\"")}))
+  
+(defn jar-pom-info 
+  "Get the POM information from a jar-file"
+  [jar-file]
+  (parse-pom-xml (jar-pom-xml jar-file)))
 
 (defn select-clj-jar-entries
   "Select *.clj files from a list of jar entries."
