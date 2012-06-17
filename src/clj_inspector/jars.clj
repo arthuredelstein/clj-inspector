@@ -9,7 +9,8 @@
   (:require [clojure.zip :as zip]
             [clojure.xml :as xml])
   (:use [clojure.java.io :only (reader)]
-        [clojure.data.zip.xml :only (attr text xml->)]))
+        [clojure.data.zip.xml :only (attr text xml->)]
+        [clojure.data.zip.xml :only [xml-> xml1-> text]]))
 
 (def failed-jars (atom []))
 
@@ -49,6 +50,22 @@
        (.getInputStream (ZipFile. jar-file))
        xml/parse))
        
+;; scavenged from ClojureSphere (and stripped down)
+(defn parse-pom-xml
+  "Get information from the xml structure generated from a POM file."
+  [xml]
+  (let [z (zip/xml-zip xml)
+        group-id (xml1-> z :groupId text)
+        artifact-id (xml1-> z :artifactId text)
+        name (if group-id (str group-id "/" artifact-id) artifact-id)
+        version (xml1-> z :version text)]
+    {:group-id group-id
+     :artifact-id artifact-id
+     :name name
+     :version version
+     :description (xml1-> z :description text)
+     :url (xml1-> z :url text)}))
+
 (defn select-clj-jar-entries
   "Select *.clj files from a list of jar entries."
   [entries]
