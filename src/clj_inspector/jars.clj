@@ -65,7 +65,7 @@
      :version version
      :description (xml1-> z :description text)
      :url (xml1-> z :url text)
-     :lein-specifier (str "[" name " \"" version "\"")}))
+     :lein-specifier (str "[" name " \"" version "\"]")}))
   
 (defn jar-pom-info 
   "Get the POM information from a jar-file"
