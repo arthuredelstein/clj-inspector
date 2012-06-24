@@ -14,6 +14,9 @@
 
 (def failed-jars (atom []))
 
+(defn suffix [path]
+  (re-find #"[^\.]+\z" (.trim path)))
+
 (defn #^String slurp*
   "Like clojure.core/slurp but opens f with reader."
   [f]
@@ -57,7 +60,9 @@
   (let [z (zip/xml-zip xml)
         group-id (xml1-> z :groupId text)
         artifact-id (xml1-> z :artifactId text)
-        name (if group-id (str group-id "/" artifact-id) artifact-id)
+        name (if (and group-id (not= group-id artifact-id))
+                (str group-id "/" artifact-id)
+                artifact-id)
         version (xml1-> z :version text)]
     {:group-id group-id
      :artifact-id artifact-id
@@ -75,7 +80,7 @@
 (defn select-clj-jar-entries
   "Select *.clj files from a list of jar entries."
   [entries]
-  (filter #(.endsWith (.getName %) ".clj") entries))
+  (filter #(#{"clj" "cljs"} (suffix (.getName %)) entries)))
 
 (defn clj-sources-from-jar
   "Read the text of clj source files from a jar file

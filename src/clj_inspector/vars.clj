@@ -8,7 +8,8 @@
           [java.io BufferedReader File StringReader]
           [java.lang StringBuilder])
  (:use [clojure.pprint :only (pprint)]
-       [clj-inspector.jars :only (clj-sources-from-jar)]))
+       [clj-inspector.jars :only (clj-sources-from-jar
+                                  suffix)]))
 
 (def failed-to-process (atom []))
 
@@ -133,13 +134,14 @@
              :var-type (get-var-type sexpr)}))
         {:expr-type (first sexpr)}))))
 
-(defn create-var-entries [sexprs]
+(defn create-var-entries [language sexprs]
   (filter :var-type
           (let [exprs-info (map build-expr-info sexprs)]
             (let [the-ns (first exprs-info)
                   ns-info {:ns (:full-name the-ns)
                            :author (:author the-ns)
-                           :ns-doc (:doc the-ns)}]
+                           :ns-doc (:doc the-ns)
+                           :language language}]
               (if (has? ['ns 'in-ns] (:expr-type (meta the-ns)))
                 (map #(merge ns-info %) (rest exprs-info))
                 (throw (Exception. "First element is not a namespace declaration.")))))))
@@ -148,13 +150,13 @@
   (doseq [entry var-entries]
   (swap! ns-names update-in [(:ns entry)] conj (:name entry))))
 
-(defn analyze-clojure-source [source-text]
+(defn analyze-clojure-source [language source-text]
   ; Important to turn off the EvalReader
   ; because we are reading untrusted code!!!
   (binding [*read-eval* false] 
     (try
       (doto
-        (create-var-entries (read-clojure-source source-text))
+        (create-var-entries language (read-clojure-source source-text))
         save-names)
       (catch Throwable e (do (swap! failed-to-process conj [source-text e]) nil)))))
 
@@ -220,9 +222,9 @@
 
 (defn test-process []
   (time (map count
-             (map analyze-clojure-source
-                  (map second
-                       (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))))
+             (for [[path code]
+                   (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar"))]
+               (analyze-clojure-source (suffix path) code)))))
 
 (defn core-code []
   (second (first (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))
