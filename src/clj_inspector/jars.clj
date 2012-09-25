@@ -80,7 +80,7 @@
 (defn select-clj-jar-entries
   "Select *.clj files from a list of jar entries."
   [entries]
-  (filter #(#{"clj" "cljs"} (suffix (.getName %)) entries)))
+  (filter #(#{"clj" "cljs"} (suffix (.getName %))) entries))
 
 (defn clj-sources-from-jar
   "Read the text of clj source files from a jar file
@@ -101,5 +101,5 @@
 ;; test
 
 (defn first-test []
-  (map count (vals (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))
+  (map count (vals (clj-sources-from-jar (File. "lib/clojure-1.4.0.jar")))))
 
