@@ -218,15 +218,15 @@
   (read-clojure-source (slurp test-file)))
 
 (defn test-collect []
-  (analyze-clojure-source (slurp test-file)))
+  (analyze-clojure-source "clj" (slurp test-file)))
 
 (defn test-process []
   (time (map count
              (for [[path code]
-                   (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar"))]
+                   (clj-sources-from-jar (File. "lib/clojure-1.4.0.jar"))]
                (analyze-clojure-source (suffix path) code)))))
 
 (defn core-code []
-  (second (first (clj-sources-from-jar (File. "lib/clojure-1.3.0.jar")))))
-  
+  (second (first (clj-sources-from-jar (File. "lib/clojure-1.4.0.jar")))))
+
 
